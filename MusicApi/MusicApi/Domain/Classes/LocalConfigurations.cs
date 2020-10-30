@@ -17,10 +17,10 @@ namespace MusicApi.Domain.Classes
 
         public LocalConfigurations(IConfiguration configuration)
         {
-            BaseUrl = configuration["Music:BaseUrl"];
-            ImagesDirectory = configuration["Music:ImagesDirectory"];
-            TracksDirectory = configuration["Music:TracksDirectory"];
-            SecurityToken = configuration["Music:SecurityToken"];
+            BaseUrl = configuration[Constants.UrlConfigKey];
+            ImagesDirectory = configuration[Constants.ImagesConfigKey];
+            TracksDirectory = configuration[Constants.TracksConfigKey];
+            SecurityToken = configuration[Constants.TokenConfigKey];
         }
 
     }

@@ -23,5 +23,12 @@ namespace MusicApi.Domain.Interfaces
         /// <returns>TRUE if successful. FALSE if unsuccessful.</returns>
         Task<bool> SaveImageToDisk(Track track);
 
+        /// <summary>
+        /// Tries to delete the track and image file if it exists.
+        /// </summary>
+        /// <param name="track"></param>
+        /// <returns>TRUE if no errors. FALSE if error occurred.</returns>
+        bool DeleteIfExists(Track track);
+
     }
 }

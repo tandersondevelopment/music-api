@@ -9,7 +9,7 @@ namespace MusicApi.Domain.Classes
     ///<inheritdoc/>
     public class FileManager : IFileManager
     {
-        
+
         #region Fields
 
         private readonly ILocalConfigurations _localConfigurations;
@@ -33,40 +33,62 @@ namespace MusicApi.Domain.Classes
 
         ///<inheritdoc/>
         public async Task<bool> SaveTrackToDisk(Track track)
-        {
-            var trackPath = Path.Combine(_localConfigurations.TracksDirectory, track.FileName);
-            return await SaveDataToDisk(trackPath, track.FileData);
-        }
+            => await SaveDataToDisk(GetTrackPath(track), track.FileData);
 
         ///<inheritdoc/>
         public async Task<bool> SaveImageToDisk(Track track)
+            => await SaveDataToDisk(GetImagePath(track), track.ImageData);
+
+        ///<inheritdoc/>
+        public bool DeleteIfExists(Track track)
         {
-            var trackPath = Path.Combine(_localConfigurations.ImagesDirectory,
-                $"{Path.GetFileNameWithoutExtension(track.FileName)}.jpg");
-            return await SaveDataToDisk(trackPath, track.ImageData);
+            try
+            {
+                DeleteIfExists(GetTrackPath(track));
+                DeleteIfExists(GetImagePath(track));
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            return true;
         }
 
         #endregion
 
         #region Helper Methods
 
+        // TODO: change folders based on track type.
+        private string GetTrackPath(Track track)
+            => Path.Combine(_localConfigurations.TracksDirectory, track.FileName);
+
+        // TODO: change folders based on track type.
+        private string GetImagePath(Track track)
+            => Path.Combine(_localConfigurations.ImagesDirectory,
+                $"{Path.GetFileNameWithoutExtension(track.FileName)}.jpg");
+
+        // TODO: create folder if not exists.        
         private async Task<bool> SaveDataToDisk(string path, byte[] data)
         {
             try
             {
-                if (_fileWrapper.Exists(path))
-                {
-                    _fileWrapper.Delete(path);
-                }
-
-                await _fileWrapper.WriteAllBytesAsync(path, data);                
+                DeleteIfExists(path);
+                await _fileWrapper.WriteAllBytesAsync(path, data);
             }
-            catch(Exception)
+            catch (Exception)
             {
                 return false;
             }
 
             return true;
+        }
+
+        private void DeleteIfExists(string path)
+        {
+            if (_fileWrapper.Exists(path))
+            {
+                _fileWrapper.Delete(path);
+            }
         }
 
         #endregion

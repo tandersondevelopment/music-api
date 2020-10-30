@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicApi.DbContexts;
 using MusicApi.Domain.Interfaces;
 using MusicApi.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace MusicApi.Controllers
 {
@@ -53,8 +51,8 @@ namespace MusicApi.Controllers
         }
 
         // PUT: api/Tracks/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for
-        // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
+        // Note: Not saving data to disk. This is just to fix metadata on track.
+        //       If file or image is needing updated then the track should be deleted.
         [HttpPut("{id}")]
         public async Task<IActionResult> PutTrack(int id, Track track)
         {
@@ -64,12 +62,6 @@ namespace MusicApi.Controllers
             }
 
             _context.Entry(track).State = EntityState.Modified;
-
-            if (! await SaveFilesToDisk(track))
-            {
-                return Problem("Unable to save to disk.", 
-                    statusCode: StatusCodes.Status500InternalServerError);
-            }
 
             SetUrls(track);
 
@@ -98,24 +90,8 @@ namespace MusicApi.Controllers
         [HttpPost]
         [Consumes("multipart/form-data")]
         public async Task<ActionResult<Track>> PostTrack([FromForm]Track track)
-        {           
-            var files = Request.Form.Files;
-            foreach(var file in files)
-            {
-                using (var content = new StreamContent(file.OpenReadStream()))
-                {
-                    var data = await content.ReadAsByteArrayAsync();
-                    if (file.Name.Equals(nameof(Track.FileData)))
-                    {
-                        track.FileData = data;
-                    }
-                    if (file.Name.Equals(nameof(Track.ImageData)))
-                    {
-                        track.ImageData = data;
-                    }
-                }                
-            }
-            
+        {
+            await LoadFileDataIntoTrack(track);          
 
             if (!await SaveFilesToDisk(track))
             {
@@ -128,8 +104,8 @@ namespace MusicApi.Controllers
             _context.Tracks.Add(track);
             await _context.SaveChangesAsync();
 
-            track.FileData = null; //Don't send
-            track.ImageData = null; //Don't send
+            track.FileData = null; // Don't send back as its a waste of bandwidth
+            track.ImageData = null; // Same
             return CreatedAtAction(nameof(GetTrack), new { id = track.Id }, track);
         }
 
@@ -141,6 +117,11 @@ namespace MusicApi.Controllers
             if (track == null)
             {
                 return NotFound();
+            }
+            if (!_fileManager.DeleteIfExists(track))
+            {
+                return Problem("Unable to save to delete from disk.",
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
 
             _context.Tracks.Remove(track);
@@ -156,6 +137,26 @@ namespace MusicApi.Controllers
         private bool TrackExists(int id)
         {
             return _context.Tracks.Any(e => e.Id == id);
+        }
+
+        private async Task LoadFileDataIntoTrack(Track track)
+        {
+            var files = Request.Form.Files;
+            foreach (var file in files)
+            {
+                using (var content = new StreamContent(file.OpenReadStream()))
+                {
+                    var data = await content.ReadAsByteArrayAsync();
+                    if (file.Name.Equals(nameof(Track.FileData)))
+                    {
+                        track.FileData = data;
+                    }
+                    if (file.Name.Equals(nameof(Track.ImageData)))
+                    {
+                        track.ImageData = data;
+                    }
+                }
+            }
         }
 
         private async Task<bool> SaveFilesToDisk(Track track)
